@@ -9,6 +9,9 @@ import os
 
 def train_vqvae(args):
     dataset = AISTDataset(args.data_dir, split='train')
+    if len(dataset) == 0:
+        print("Error: Dataset is empty. Exiting.")
+        return
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     
     model = VQVAE(input_dim=72, hidden_dim=128, embedding_dim=64, num_embeddings=512).to(args.device)
@@ -40,6 +43,9 @@ def train_transformer(args):
     vqvae.eval()
     
     dataset = AISTDataset(args.data_dir, split='train')
+    if len(dataset) == 0:
+        print("Error: Dataset is empty. Exiting.")
+        return
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     
     model = MaskedTransformer(num_embeddings=512, d_model=256, nhead=4, num_layers=4, dim_feedforward=512).to(args.device)

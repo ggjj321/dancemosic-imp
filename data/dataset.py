@@ -60,31 +60,53 @@ class AISTDataset(Dataset):
 
     def _load_data(self):
         data_chunks = []
-        for file_path in self.motion_files:
-            # file_path is already absolute/relative from search
+        skipped_count = 0
+        loaded_count = 0
+        
+        print(f"Loading data from {len(self.motion_files)} files...")
+        
+        for i, file_path in enumerate(self.motion_files):
             try:
                 with open(file_path, 'rb') as f:
                     motion_data = pickle.load(f)
                 
-                # Assuming motion_data is a dictionary or array with 'pose' or 'smpl_poses'
+                poses = None
                 if isinstance(motion_data, dict):
-                    poses = motion_data.get('smpl_poses', motion_data.get('pose', None))
+                    # Try common keys
+                    for key in ['smpl_poses', 'pose', 'keypoints3d', 'pred_motion']:
+                        if key in motion_data:
+                            poses = motion_data[key]
+                            break
+                    
+                    if poses is None and i < 5:
+                        print(f"DEBUG: File {os.path.basename(file_path)} has keys: {list(motion_data.keys())}")
                 else:
                     poses = motion_data # Assume array
                 
                 if poses is None:
+                    skipped_count += 1
                     continue
 
                 # Slice into windows
                 n_frames = poses.shape[0]
                 if n_frames < self.window_size:
-                    continue # Skip if too short
+                    if i < 5:
+                        print(f"DEBUG: File {os.path.basename(file_path)} too short: {n_frames} < {self.window_size}")
+                    skipped_count += 1
+                    continue 
                     
-                for i in range(0, n_frames - self.window_size + 1, self.stride):
-                    window = poses[i : i + self.window_size]
+                for j in range(0, n_frames - self.window_size + 1, self.stride):
+                    window = poses[j : j + self.window_size]
                     data_chunks.append(window)
+                
+                loaded_count += 1
+                
             except Exception as e:
                 print(f"Error loading {file_path}: {e}")
+                skipped_count += 1
+        
+        print(f"Data loading complete. Loaded {loaded_count} files. Skipped {skipped_count} files.")
+        print(f"Total chunks: {len(data_chunks)}")
         
         return data_chunks
 
