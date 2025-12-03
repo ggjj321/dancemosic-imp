@@ -20,30 +20,53 @@ class AISTDataset(Dataset):
         
         self.motion_files = self._get_motion_files()
         self.data = self._load_data()
+        
+        if len(self.data) == 0:
+            print(f"WARNING: Dataset ({self.split}) is empty. Check data_dir: {self.data_dir}")
+            # We don't raise here to allow 'verify_pipeline' to run if it handles it, 
+            # but DataLoader will fail if num_samples=0.
 
     def _get_motion_files(self):
-        # Placeholder: Implement logic to list files based on split
-        # Usually AIST++ has a split file or specific naming convention
-        # For now, just list all .pkl files in the directory
-        files = [f for f in os.listdir(self.data_dir) if f.endswith('.pkl')]
-        # Simple split logic for demonstration
+        files = []
+        # Recursive search for .pkl files
+        for root, _, filenames in os.walk(self.data_dir):
+            for filename in filenames:
+                if filename.endswith('.pkl'):
+                    files.append(os.path.join(root, filename))
+        
+        if not files:
+            print(f"No .pkl files found in {self.data_dir}")
+            return []
+
+        # Sort to ensure deterministic split
+        files.sort()
+        
+        n_files = len(files)
+        split_idx = int(0.8 * n_files)
+        
+        # Handle small datasets (e.g. < 5 files)
+        if n_files > 0 and split_idx == 0:
+            split_idx = n_files # Use all for train if very small
+            
         if self.split == 'train':
-            return files[:int(0.8 * len(files))]
+            selected_files = files[:split_idx]
         elif self.split == 'val':
-            return files[int(0.8 * len(files)):]
+            selected_files = files[split_idx:]
         else:
-            return files # Test uses all or specific subset
+            selected_files = files # Test uses all or specific subset
+            
+        print(f"Found {len(files)} total files. Selected {len(selected_files)} for {self.split} split.")
+        return selected_files
 
     def _load_data(self):
         data_chunks = []
-        for filename in self.motion_files:
-            file_path = os.path.join(self.data_dir, filename)
+        for file_path in self.motion_files:
+            # file_path is already absolute/relative from search
             try:
                 with open(file_path, 'rb') as f:
                     motion_data = pickle.load(f)
                 
                 # Assuming motion_data is a dictionary or array with 'pose' or 'smpl_poses'
-                # Adjust key based on actual data format
                 if isinstance(motion_data, dict):
                     poses = motion_data.get('smpl_poses', motion_data.get('pose', None))
                 else:
@@ -54,11 +77,14 @@ class AISTDataset(Dataset):
 
                 # Slice into windows
                 n_frames = poses.shape[0]
+                if n_frames < self.window_size:
+                    continue # Skip if too short
+                    
                 for i in range(0, n_frames - self.window_size + 1, self.stride):
                     window = poses[i : i + self.window_size]
                     data_chunks.append(window)
             except Exception as e:
-                print(f"Error loading {filename}: {e}")
+                print(f"Error loading {file_path}: {e}")
         
         return data_chunks
 
