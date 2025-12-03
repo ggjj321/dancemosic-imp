@@ -14,7 +14,12 @@ def train_vqvae(args):
         return
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     
-    model = VQVAE(input_dim=72, hidden_dim=128, embedding_dim=64, num_embeddings=512).to(args.device)
+    # Determine input dimension from data
+    sample_data = dataset[0]
+    input_dim = sample_data.shape[1]
+    print(f"Detected input dimension: {input_dim}")
+    
+    model = VQVAE(input_dim=input_dim, hidden_dim=128, embedding_dim=64, num_embeddings=512).to(args.device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     
     model.train()
@@ -40,15 +45,17 @@ def train_transformer(args):
     # Load VQ-VAE
     vqvae = VQVAE(input_dim=72, hidden_dim=128, embedding_dim=64, num_embeddings=512).to(args.device)
     vqvae.load_state_dict(torch.load(args.vqvae_path))
-    vqvae.eval()
-    
-    dataset = AISTDataset(args.data_dir, split='train')
-    if len(dataset) == 0:
-        print("Error: Dataset is empty. Exiting.")
-        return
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     
-    model = MaskedTransformer(num_embeddings=512, d_model=256, nhead=4, num_layers=4, dim_feedforward=512).to(args.device)
+    # Determine input dimension from data
+    sample_data = dataset[0]
+    input_dim = sample_data.shape[1]
+    print(f"Detected input dimension: {input_dim}")
+    
+    # Load VQ-VAE
+    vqvae = VQVAE(input_dim=input_dim, hidden_dim=128, embedding_dim=64, num_embeddings=512).to(args.device)
+    vqvae.load_state_dict(torch.load(args.vqvae_path))
+    vqvae.eval()
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     criterion = torch.nn.CrossEntropyLoss()
     

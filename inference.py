@@ -78,7 +78,7 @@ def inbetween(args):
     device = args.device
     
     # Load Models
-    vqvae = VQVAE(input_dim=72, hidden_dim=128, embedding_dim=64, num_embeddings=512).to(device)
+    vqvae = VQVAE(input_dim=args.input_dim, hidden_dim=128, embedding_dim=64, num_embeddings=512).to(device)
     vqvae.load_state_dict(torch.load(args.vqvae_path, map_location=device))
     vqvae.eval()
     
@@ -94,8 +94,8 @@ def inbetween(args):
         pass
     else:
         print("Using dummy start/end motion.")
-        start_motion = torch.randn(1, 72, 20).to(device) # [B, C, T]
-        end_motion = torch.randn(1, 72, 20).to(device)
+        start_motion = torch.randn(1, args.input_dim, 20).to(device) # [B, C, T]
+        end_motion = torch.randn(1, args.input_dim, 20).to(device)
     
     # Encode
     with torch.no_grad():
@@ -150,6 +150,7 @@ if __name__ == "__main__":
     parser.add_argument("--target_len", type=int, default=30)
     parser.add_argument("--output_path", type=str, default="result")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--input_dim", type=int, default=72, help="Input dimension of motion data (e.g. 72 for SMPL, 51 for keypoints)")
     
     args = parser.parse_args()
     inbetween(args)
