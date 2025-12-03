@@ -89,6 +89,11 @@ class AISTDataset(Dataset):
 
                 # Slice into windows
                 n_frames = poses.shape[0]
+                
+                # Flatten features if necessary (e.g. [T, J, 3] -> [T, J*3])
+                if len(poses.shape) > 2:
+                    poses = poses.reshape(n_frames, -1)
+                
                 if n_frames < self.window_size:
                     if i < 5:
                         print(f"DEBUG: File {os.path.basename(file_path)} too short: {n_frames} < {self.window_size}")
